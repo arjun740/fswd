@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Used Product Buy/Sell</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .product-card {
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .product-card h3 {
+        margin-top: 0;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .form-group input,
+      .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+      }
+
+      .btn {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Used Product Buy/Sell</h1>
+
+      <h2>Create a New Product</h2>
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" required />
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" required></textarea>
+      </div>
+      <div class="form-group">
+        <label for="price">Price</label>
+        <input type="number" id="price" name="price" required />
+      </div>
+      <div class="form-group">
+        <label for="condition">Condition</label>
+        <input type="text" id="condition" name="condition" required />
+      </div>
+      <button class="btn" onclick="createProduct()">Create Product</button>
+
+      <h2>Available Products</h2>
+      <div id="product-list"></div>
+    </div>
+
+    <script>
+      const productList = document.getElementById("product-list");
+
+      function createProduct() {
+        const nameInput = document.getElementById("name");
+        const descriptionInput = document.getElementById("description");
+        const priceInput = document.getElementById("price");
+        const conditionInput = document.getElementById("condition");
+
+        const newProduct = {
+          name: nameInput.value,
+          description: descriptionInput.value,
+          price: priceInput.value,
+          condition: conditionInput.value,
+        };
+
+        // Send the new product to the backend API
+        fetch("/api/products", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newProduct),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            displayProduct(data);
+            nameInput.value = "";
+            descriptionInput.value = "";
+            priceInput.value = "";
+            conditionInput.value = "";
+          })
+          .catch((error) => console.error("Error creating product:", error));
+      }
+
+      function displayProduct(product) {
+        const productCard = document.createElement("div");
+        productCard.classList.add("product-card");
+
+        const productName = document.createElement("h3");
+        productName.textContent = product.name;
+
+        const productDescription = document.createElement("p");
+        productDescription.textContent = product.description;
+
+        const productPrice = document.createElement("p");
+        productPrice.textContent = `Price: $${product.price}`;
+
+        const productCondition = document.createElement("p");
+        productCondition.textContent = `Condition: ${product.condition}`;
+
+        productCard.appendChild(productName);
+        productCard.appendChild(productDescription);
+        productCard.appendChild(productPrice);
+        productCard.appendChild(productCondition);
+
+        productList.appendChild(productCard);
+      }
+
+      // Fetch and display existing products
+      fetch("/api/products")
+        .then((response) => response.json())
+        .then((data) => {
+          data.forEach((product) => {
+            displayProduct(product);
+          });
+        })
+        .catch((error) => console.error("Error fetching products:", error));
+    </script>
+  </body>
+  <!-- </html>
+const express = require('express');
+const bodyParser = require('body-parser');
+const uuid = require('uuid');
+
+const app = express();
+app.use(bodyParser.json());
+
+// In-memory data storage with initial sample data
+let products = [
+  {
+    id: uuid.v4(),
+    name: "Vintage Leather Jacket",
+    description: "Classic brown leather jacket from the 70s",
+    price: 299.99,
+    condition: "Good",
+    createdAt: new Date("2024-01-15").toISOString()
+  },
+  {
+    id: uuid.v4(),
+    name: "Antique Oak Table",
+    description: "Victorian era dining table with intricate carvings",
+    price: 1200.00,
+    condition: "Excellent",
+    createdAt: new Date("2024-02-01").toISOString()
+  },
+  {
+    id: uuid.v4(),
+    name: "Polaroid Camera",
+    description: "1960s Polaroid Land Camera with original case",
+    price: 150.00,
+    condition: "Fair",
+    createdAt: new Date("2024-02-15").toISOString()
+  },
+  {
+    id: uuid.v4(),
+    name: "Vinyl Record Collection",
+    description: "Collection of 50 classic rock albums from the 60s and 70s",
+    price: 500.00,
+    condition: "Very Good",
+    createdAt: new Date("2024-03-01").toISOString()
+  }
+];
+
+// Get all products
+app.get('/products', (req, res) => {
+  res.json(products);
+});
+
+// Get a single product
+app.get('/products/:id', (req, res) => {
+  const product = products.find(p => p.id === req.params.id);
+  if (product) {
+    res.json(product);
+  } else {
+    res.status(404).json({ error: 'Product not found' });
+  }
+});
+
+// Create a new product
+app.post('/products', (req, res) => {
+  const { name, description, price, condition } = req.body;
+  const newProduct = {
+    id: uuid.v4(),
+    name,
+    description,
+    price,
+    condition,
+    createdAt: new Date().toISOString()
+  };
+  products.push(newProduct);
+  res.status(201).json(newProduct);
+});
+
+// Delete a product
+app.delete('/products/:id', (req, res) => {
+  const productIndex = products.findIndex(p => p.id === req.params.id);
+  if (productIndex !== -1) {
+    products.splice(productIndex, 1);
+    res.sendStatus(204);
+  } else {
+    res.status(404).json({ error: 'Product not found' });
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Server started on port 3000');
+}); -->
+</html>

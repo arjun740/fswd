@@ -1,0 +1,179 @@
+const express = require('express');
+const app = express();
+const port = 3000;
+
+// In-memory data (replace with a database later)
+const menu = [
+  { id: 1, name: 'Burger', price: 5.99 },
+  { id: 2, name: 'Pizza', price: 8.99 },
+  { id: 3, name: 'Salad', price: 4.99 },
+  { id: 4, name: 'Fries', price: 2.99 }
+];
+
+let orders = [];
+
+app.use(express.json());
+
+// Get menu items
+app.get('/menu', (req, res) => {
+  res.json(menu);
+});
+
+// Place a new order
+app.post('/orders', (req, res) => {
+  const { items } = req.body;
+  const order = {
+    id: orders.length + 1,
+    items,
+    total: items.reduce((total, item) => total + item.price, 0)
+  };
+  orders.push(order);
+  res.status(201).json(order);
+});
+
+// Get all orders
+app.get('/orders', (req, res) => {
+  res.json(orders);
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+// Frontend (HTML, CSS, JavaScript)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food Ordering App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .order-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Food Ordering App</h1>
+    <h2>Menu</h2>
+    <div id="menu"></div>
+
+    <h2>Your Order</h2>
+    <div id="order-list"></div>
+    <button class="btn" onclick="placeOrder()">Place Order</button>
+
+    <script>
+      const menuContainer = document.getElementById('menu');
+      const orderListContainer = document.getElementById('order-list');
+      let orderItems = [];
+
+      fetch('/menu')
+        .then(response => response.json())
+        .then(data => {
+          data.forEach(item => {
+            const menuItem = document.createElement('div');
+            menuItem.classList.add('menu-item');
+
+            const itemName = document.createElement('span');
+            itemName.textContent = item.name;
+
+            const itemPrice = document.createElement('span');
+            itemPrice.textContent = `$${item.price.toFixed(2)}`;
+
+            const addButton = document.createElement('button');
+            addButton.textContent = 'Add to Order';
+            addButton.classList.add('btn');
+            addButton.onclick = () => addToOrder(item);
+
+            menuItem.appendChild(itemName);
+            menuItem.appendChild(itemPrice);
+            menuItem.appendChild(addButton);
+            menuContainer.appendChild(menuItem);
+          });
+        })
+        .catch(error => console.error('Error fetching menu:', error));
+
+      function addToOrder(item) {
+        orderItems.push(item);
+        updateOrderList();
+      }
+
+      function updateOrderList() {
+        orderListContainer.innerHTML = '';
+        orderItems.forEach(item => {
+          const orderItem = document.createElement('div');
+          orderItem.classList.add('order-item');
+
+          const itemName = document.createElement('span');
+          itemName.textContent = item.name;
+
+          const itemPrice = document.createElement('span');
+          itemPrice.textContent = `$${item.price.toFixed(2)}`;
+
+          orderItem.appendChild(itemName);
+          orderItem.appendChild(itemPrice);
+          orderListContainer.appendChild(orderItem);
+        });
+      }
+
+      function placeOrder() {
+        if (orderItems.length > 0) {
+          fetch('/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ items: orderItems })
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Order placed:', data);
+            orderItems = [];
+            updateOrderList();
+          })
+          .catch(error => console.error('Error placing order:', error));
+        } else {
+          alert('Please add items to your order before placing it.');
+        }
+      }
+    </script>
+  </div>
+</body>
+</html>

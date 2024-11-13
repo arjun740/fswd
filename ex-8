@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quick Survey</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        background-color: #f0f2f5;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #1a73e8;
+        margin-bottom: 10px;
+      }
+
+      .question-container {
+        margin-bottom: 30px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+      }
+
+      .question {
+        font-size: 1.2em;
+        margin-bottom: 15px;
+        color: #333;
+      }
+
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .option {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .option:hover {
+        background-color: #e3f2fd;
+      }
+
+      .option.selected {
+        background-color: #1a73e8;
+        color: white;
+        border-color: #1557b0;
+      }
+
+      .option input[type="radio"] {
+        margin-right: 10px;
+      }
+
+      .progress {
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: #e9ecef;
+        border-radius: 5px;
+      }
+
+      .progress-bar {
+        height: 20px;
+        background-color: #1a73e8;
+        border-radius: 5px;
+        transition: width 0.3s ease;
+      }
+
+      .submit-button {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1.1em;
+        width: 100%;
+        transition: background-color 0.2s;
+      }
+
+      .submit-button:hover {
+        background-color: #1557b0;
+      }
+
+      .submit-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .thank-you {
+        text-align: center;
+        padding: 40px;
+      }
+
+      .thank-you h2 {
+        color: #1a73e8;
+        margin-bottom: 20px;
+      }
+
+      .error {
+        color: #dc3545;
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          padding: 15px;
+        }
+
+        .question {
+          font-size: 1.1em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Quick Survey</h1>
+        <p>Please answer these 5 random questions</p>
+      </div>
+
+      <div id="loading" class="loading">Loading questions...</div>
+
+      <div id="survey-content" style="display: none">
+        <div class="progress">
+          <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+
+        <div id="question-container"></div>
+
+        <button id="submit-button" class="submit-button" disabled>
+          Submit Survey
+        </button>
+
+        <div id="error" class="error"></div>
+      </div>
+
+      <div id="thank-you" class="thank-you" style="display: none">
+        <h2>Thank you for completing the survey!</h2>
+        <p>Your responses have been recorded.</p>
+        <button
+          onclick="startNewSurvey()"
+          class="submit-button"
+          style="margin-top: 20px"
+        >
+          Take Another Survey
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/api";
+      let currentQuestions = [];
+      let answers = {};
+
+      async function fetchQuestions() {
+        try {
+          const response = await fetch(`${API_URL}/questions`);
+          currentQuestions = await response.json();
+          displayQuestions();
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("survey-content").style.display = "block";
+        } catch (error) {
+          console.error("Error fetching questions:", error);
+          document.getElementById("error").textContent =
+            "Error loading questions. Please try again.";
+        }
+      }
+
+      function displayQuestions() {
+        const container = document.getElementById("question-container");
+        container.innerHTML = currentQuestions
+          .map(
+            (q, index) => `
+                <div class="question-container">
+                    <div class="question">
+                        ${index + 1}. ${q.question}
+                    </div>
+                    <div class="options">
+                        ${q.options
+                          .map(
+                            (option) => `
+                            <label class="option">
+                                <input 
+                                    type="radio" 
+                                    name="question${q.id}" 
+                                    value="${option}"
+                                    onchange="handleAnswer(${q.id}, '${option}')"
+                                >
+                                ${option}
+                            </label>
+                        `
+                          )
+                          .join("")}
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      function handleAnswer(questionId, answer) {
+        answers[questionId] = answer;
+        updateProgress();
+
+        // Update selected option styling
+        const options = document.getElementsByName(`question${questionId}`);
+        options.forEach((option) => {
+          option.parentElement.classList.remove("selected");
+          if (option.value === answer) {
+            option.parentElement.classList.add("selected");
+          }
+        });
+      }
+
+      function updateProgress() {
+        const progress =
+          (Object.keys(answers).length / currentQuestions.length) * 100;
+        document.getElementById("progress-bar").style.width = `${progress}%`;
+
+        const submitButton = document.getElementById("submit-button");
+        submitButton.disabled =
+          Object.keys(answers).length !== currentQuestions.length;
+      }
+
+      async function submitSurvey() {
+        try {
+          const response = await fetch(`${API_URL}/submit`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ answers }),
+          });
+
+          if (response.ok) {
+            document.getElementById("survey-content").style.display = "none";
+            document.getElementById("thank-you").style.display = "block";
+          } else {
+            throw new Error("Failed to submit survey");
+          }
+        } catch (error) {
+          console.error("Error submitting survey:", error);
+          document.getElementById("error").textContent =
+            "Error submitting survey. Please try again.";
+        }
+      }
+
+      function startNewSurvey() {
+        answers = {};
+        document.getElementById("thank-you").style.display = "none";
+        document.getElementById("loading").style.display = "block";
+        document.getElementById("error").textContent = "";
+        fetchQuestions();
+      }
+
+      // Event listeners
+      document
+        .getElementById("submit-button")
+        .addEventListener("click", submitSurvey);
+
+      // Initialize
+      fetchQuestions();
+    </script>
+  </body>
+</html>
+
+<!-- const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const uuid = require('uuid');
+
+const app = express();
+
+app.use(cors());
+app.use(bodyParser.json());
+
+// Sample questions database
+const questions = [
+    {
+        id: 1,
+        question: "How often do you exercise?",
+        options: ["Never", "1-2 times a week", "3-4 times a week", "5+ times a week"]
+    },
+    {
+        id: 2,
+        question: "What's your preferred way of learning new things?",
+        options: ["Reading", "Video tutorials", "Hands-on practice", "Classroom learning"]
+    },
+    {
+        id: 3,
+        question: "How many hours do you spend on social media daily?",
+        options: ["Less than 1 hour", "1-2 hours", "2-4 hours", "More than 4 hours"]
+    },
+    {
+        id: 4,
+        question: "What's your favorite season?",
+        options: ["Spring", "Summer", "Fall", "Winter"]
+    },
+    {
+        id: 5,
+        question: "How do you prefer to work?",
+        options: ["Remote", "Office", "Hybrid", "Flexible"]
+    },
+    {
+        id: 6,
+        question: "What's your preferred method of transportation?",
+        options: ["Car", "Public transport", "Bicycle", "Walking"]
+    },
+    {
+        id: 7,
+        question: "How often do you read books?",
+        options: ["Daily", "Weekly", "Monthly", "Rarely"]
+    },
+    {
+        id: 8,
+        question: "What type of movies do you prefer?",
+        options: ["Action", "Comedy", "Drama", "Science Fiction"]
+    },
+    {
+        id: 9,
+        question: "How do you usually spend your weekends?",
+        options: ["Outdoor activities", "Relaxing at home", "Socializing", "Pursuing hobbies"]
+    },
+    {
+        id: 10,
+        question: "What's your preferred cooking method?",
+        options: ["Stovetop", "Oven", "Grill", "Microwave"]
+    }
+];
+
+// Store survey responses
+let responses = [];
+
+// Get 5 random questions
+app.get('/api/questions', (req, res) => {
+    const shuffled = [...questions].sort(() => 0.5 - Math.random());
+    const selectedQuestions = shuffled.slice(0, 5);
+    res.json(selectedQuestions);
+});
+
+// Submit survey responses
+app.post('/api/submit', (req, res) => {
+    const submission = {
+        id: uuid.v4(),
+        timestamp: new Date().toISOString(),
+        answers: req.body.answers
+    };
+    
+    responses.push(submission);
+    res.status(201).json({ message: "Survey submitted successfully", id: submission.id });
+});
+
+// Get all responses
+app.get('/api/responses', (req, res) => {
+    res.json(responses);
+});
+
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+}); -->

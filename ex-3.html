@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MicroBlog</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        background-color: #f0f2f5;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #1a73e8;
+      }
+
+      .post-form {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .post-form input,
+      .post-form textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+      }
+
+      .post-form textarea {
+        height: 100px;
+        resize: vertical;
+      }
+
+      .post-form button {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+      }
+
+      .post-form button:hover {
+        background-color: #1557b0;
+      }
+
+      .posts {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .post {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .post-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .username {
+        font-weight: bold;
+        color: #1a73e8;
+      }
+
+      .timestamp {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .post-content {
+        margin-bottom: 15px;
+        word-wrap: break-word;
+      }
+
+      .post-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .like-button {
+        background: none;
+        border: none;
+        color: #1a73e8;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .like-button:hover {
+        color: #1557b0;
+      }
+
+      .delete-button {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+      }
+
+      .delete-button:hover {
+        color: #b02a37;
+      }
+
+      .error {
+        color: #dc3545;
+        margin-top: 5px;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>MicroBlog</h1>
+      </div>
+
+      <div class="post-form">
+        <input type="text" id="username" placeholder="Your username" />
+        <textarea id="content" placeholder="What's on your mind?"></textarea>
+        <button onclick="createPost()">Post</button>
+        <div id="error" class="error"></div>
+      </div>
+
+      <div id="posts" class="posts">
+        <!-- Posts will be inserted here -->
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/api";
+
+      // Fetch and display all posts
+      async function fetchPosts() {
+        try {
+          const response = await fetch(`${API_URL}/posts`);
+          const posts = await response.json();
+          displayPosts(posts);
+        } catch (error) {
+          console.error("Error fetching posts:", error);
+        }
+      }
+
+      // Create a new post
+      async function createPost() {
+        const username = document.getElementById("username").value.trim();
+        const content = document.getElementById("content").value.trim();
+        const errorElement = document.getElementById("error");
+
+        if (!username || !content) {
+          errorElement.textContent = "Username and content are required!";
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/posts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, content }),
+          });
+
+          if (response.ok) {
+            document.getElementById("content").value = "";
+            errorElement.textContent = "";
+            fetchPosts();
+          }
+        } catch (error) {
+          console.error("Error creating post:", error);
+          errorElement.textContent = "Error creating post. Please try again.";
+        }
+      }
+
+      // Like a post
+      async function likePost(postId) {
+        try {
+          await fetch(`${API_URL}/posts/${postId}/like`, {
+            method: "POST",
+          });
+          fetchPosts();
+        } catch (error) {
+          console.error("Error liking post:", error);
+        }
+      }
+
+      // Delete a post
+      async function deletePost(postId) {
+        if (!confirm("Are you sure you want to delete this post?")) return;
+
+        try {
+          await fetch(`${API_URL}/posts/${postId}`, {
+            method: "DELETE",
+          });
+          fetchPosts();
+        } catch (error) {
+          console.error("Error deleting post:", error);
+        }
+      }
+
+      // Format timestamp to relative time
+      function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000); // difference in seconds
+
+        if (diff < 60) return "just now";
+        if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+        return date.toLocaleDateString();
+      }
+
+      // Display posts in the DOM
+      function displayPosts(posts) {
+        const postsContainer = document.getElementById("posts");
+        postsContainer.innerHTML = posts
+          .map(
+            (post) => `
+                <div class="post">
+                    <div class="post-header">
+                        <span class="username">@${post.username}</span>
+                        <span class="timestamp">${formatTimestamp(
+                          post.timestamp
+                        )}</span>
+                    </div>
+                    <div class="post-content">${post.content}</div>
+                    <div class="post-actions">
+                        <button class="like-button" onclick="likePost('${
+                          post.id
+                        }')">
+                            ❤️ ${post.likes}
+                        </button>
+                        <button class="delete-button" onclick="deletePost('${
+                          post.id
+                        }')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      // Initial load of posts
+      fetchPosts();
+
+      // Refresh posts every 30 seconds
+      setInterval(fetchPosts, 30000);
+    </script>
+  </body>
+</html>
+
+<!-- 
+
+-->
+<!-- const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const uuid = require('uuid');
+
+const app = express();
+
+app.use(cors());
+app.use(bodyParser.json());
+
+// Helper function to create timestamps within the last 24 hours
+function getRandomRecentTimestamp() {
+    const now = new Date();
+    const hoursSince = Math.random() * 24; // Random number of hours up to 24
+    return new Date(now - hoursSince * 60 * 60 * 1000).toISOString();
+}
+
+let posts = [
+    {
+        id: uuid.v4(),
+        username: "tech_sarah",
+        content: "Just deployed my first machine learning model! 🚀 The possibilities are endless. #AI #coding",
+        timestamp: getRandomRecentTimestamp(),
+        likes: 42
+    },
+    {
+        id: uuid.v4(),
+        username: "coffee_lover",
+        content: "Found this amazing hidden coffee shop in downtown. Their cold brew is life-changing! ☕️",
+        timestamp: getRandomRecentTimestamp(),
+        likes: 15
+    },
+    {
+        id: uuid.v4(),
+        username: "travel_mike",
+        content: "Sunrise hiking at Mount Rainier. Nature is truly breathtaking! 🏔️ #adventure #hiking",
+        timestamp: getRandomRecentTimestamp(),
+        likes: 89
+    },
+    {
+        id: uuid.v4(),
+        username: "bookworm_alice",
+        content: "Currently reading 'Project Hail Mary' by Andy Weir. Can't put it down! 📚 What's everyone else reading?",
+        timestamp: getRandomRecentTimestamp(),
+        likes: 27
+    }
+];
+
+
+app.get('/api/posts', (req, res) => {
+    // Sort posts by timestamp, newest first
+    const sortedPosts = [...posts].sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+    );
+    res.json(sortedPosts);
+});
+
+
+app.post('/api/posts', (req, res) => {
+    const { username, content } = req.body;
+    
+    if (!username || !content) {
+        return res.status(400).json({ error: 'Username and content are required' });
+    }
+
+    const newPost = {
+        id: uuid.v4(),
+        username,
+        content,
+        timestamp: new Date().toISOString(),
+        likes: 0
+    };
+
+    posts.push(newPost);
+    res.status(201).json(newPost);
+});
+
+app.post('/api/posts/:id/like', (req, res) => {
+    const post = posts.find(p => p.id === req.params.id);
+    if (post) {
+        post.likes += 1;
+        res.json(post);
+    } else {
+        res.status(404).json({ error: 'Post not found' });
+    }
+});
+
+
+ app.delete('/api/posts/:id', (req, res) => {
+    const postIndex = posts.findIndex(p => p.id === req.params.id);
+    if (postIndex !== -1) {
+        posts.splice(postIndex, 1);
+        res.sendStatus(204);
+    } else {
+        res.status(404).json({ error: 'Post not found' });
+    }
+}); 
+
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+}) -->
